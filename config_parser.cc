@@ -128,7 +128,7 @@ NginxConfigParser::TokenType NginxConfigParser::ParseToken(std::istream* input,
         *value += c;
         continue;
       case TOKEN_STATE_TOKEN_TYPE_NORMAL:
-        if (c == ' ' || c == '\t' || c == '\n' || c == '\t' ||
+        if (c == ' ' || c == '\t' || c == '\n' ||
             c == ';' || c == '{' || c == '}') {
           input->unget();
           return TOKEN_TYPE_NORMAL;
@@ -152,6 +152,8 @@ bool NginxConfigParser::Parse(std::istream* config_file, NginxConfig* config) {
   config_stack.push(config);
   TokenType last_token_type = TOKEN_TYPE_START;
   TokenType token_type;
+  // Counter used to ensure matching { and }
+  int unmatchedBrackets = 0;
   while (true) {
     std::string token;
     token_type = ParseToken(config_file, &token);
@@ -198,15 +200,21 @@ bool NginxConfigParser::Parse(std::istream* config_file, NginxConfig* config) {
       config_stack.top()->statements_.back().get()->child_block_.reset(
           new_config);
       config_stack.push(new_config);
+      // Increment unmatchedBrackets to make sure there's closing bracket later
+      unmatchedBrackets++;
     } else if (token_type == TOKEN_TYPE_END_BLOCK) {
-      if (last_token_type != TOKEN_TYPE_STATEMENT_END) {
+      // Only tokens before this can be ; or }
+      if (!(last_token_type == TOKEN_TYPE_STATEMENT_END
+        || last_token_type == TOKEN_TYPE_END_BLOCK)) {
         // Error.
         break;
       }
       config_stack.pop();
+      unmatchedBrackets--;
     } else if (token_type == TOKEN_TYPE_EOF) {
-      if (last_token_type != TOKEN_TYPE_STATEMENT_END &&
-          last_token_type != TOKEN_TYPE_END_BLOCK) {
+      if ((last_token_type != TOKEN_TYPE_STATEMENT_END &&
+          last_token_type != TOKEN_TYPE_END_BLOCK)
+        || unmatchedBrackets != 0) { // Number of starting brackets must match closing brackets
         // Error.
         break;
       }
