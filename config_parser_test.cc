@@ -51,6 +51,7 @@ protected:
 TEST_F(NginxStringConfigTest, SimpleConfigValid) {
 	EXPECT_TRUE(ParseString("foo bar;"));
 	EXPECT_EQ(out_config_.statements_.size(), 1); // config has one statement
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.size(), 2);
 	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(0), "foo");
 	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(1), "bar");
 	EXPECT_EQ(out_config_.statements_.at(0)->child_block_,
@@ -65,6 +66,18 @@ TEST_F(NginxStringConfigTest, SimpleConfigInvalid) {
 // Blocks with matching { and } brackets are valid
 TEST_F(NginxStringConfigTest, BlockConfigValid) {
 	EXPECT_TRUE(ParseString("server { listen 80; }"));
+	EXPECT_EQ(out_config_.statements_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(0), "server");
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.at(0)->tokens_.size(), 2);
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.at(0)->tokens_.at(0), "listen");
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.at(0)->tokens_.at(1), "80");
+}
+
+// Blocks with empty blocks are invalid
+TEST_F(NginxStringConfigTest, EmptyBlockConfigInvalid) {
+	EXPECT_FALSE(ParseString("server {}"));
 }
 
 // Blocks with unmatching brackets are invalid
@@ -76,12 +89,22 @@ TEST_F(NginxStringConfigTest, BlockConfigInvalid) {
 // Tests nested blocks
 TEST_F(NginxStringConfigTest, NestedConfigValid) {
 	EXPECT_TRUE(ParseString("server { foo {bar 80;}}"));
+	EXPECT_EQ(out_config_.statements_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(0), "server");
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.at(0)->tokens_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.at(0)->tokens_.at(0), "foo");
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.at(0)->child_block_->statements_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.at(0)->child_block_->statements_.at(0)->tokens_.at(0), "bar");
+	EXPECT_EQ(out_config_.statements_.at(0)->child_block_->statements_.at(0)->child_block_->statements_.at(0)->tokens_.at(1), "80");
 }
 
 // Blocks that are incorrectly nested are invalid
 TEST_F(NginxStringConfigTest, NestedConfigInvalid) {
 	EXPECT_FALSE(ParseString("server { foo {bar 80;}"));
 	EXPECT_FALSE(ParseString("server { foo } bar 80;{"));
+	EXPECT_FALSE(ParseString("server { foo } bar 80;{}"));
 	EXPECT_FALSE(ParseString("} foo { bar 80;}{"));
 }
 
@@ -89,18 +112,27 @@ TEST_F(NginxStringConfigTest, NestedConfigInvalid) {
 TEST_F(NginxStringConfigTest, CommentOnLine) {
 	EXPECT_TRUE(ParseString("foo bar; # this is a comment."));
 	EXPECT_EQ(out_config_.statements_.size(), 1); // config has one statement
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.size(), 2);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(0), "foo");
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(1), "bar");
 }
 
 // Comments on separate lines are ignored by the parser
 TEST_F(NginxStringConfigTest, CommentOnLineAfter) {
 	EXPECT_TRUE(ParseString("foo bar; \n # this is a comment."));
-	EXPECT_EQ(out_config_.statements_.size(), 1); // config still has one statement
+	EXPECT_EQ(out_config_.statements_.size(), 1); // config has one statement
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.size(), 2);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(0), "foo");
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(1), "bar");
 }
 
 // Comments on separate lines are ignored by the parser
 TEST_F(NginxStringConfigTest, CommentOnLineBefore) {
 	EXPECT_TRUE(ParseString("# this is a comment. \n foo bar;"));
 	EXPECT_EQ(out_config_.statements_.size(), 1); // config has one statement
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.size(), 2);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(0), "foo");
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(1), "bar");
 }
 
 // A single comment in the file will result in a failed parsing
@@ -108,6 +140,32 @@ TEST_F(NginxStringConfigTest, CommentOnLineBefore) {
 TEST_F(NginxStringConfigTest, CommentAlone) {
 	EXPECT_FALSE(ParseString("# this is a comment."));
 	EXPECT_EQ(out_config_.statements_.size(), 0);
+}
+
+// Empty configs are invalid
+TEST_F(NginxStringConfigTest, EmptyConfigInvalid) {
+	EXPECT_FALSE(ParseString(""));
+}
+
+// White space gets removed
+TEST_F(NginxStringConfigTest, WhitespaceRemoved) {
+	EXPECT_TRUE(ParseString("foo   \t    bar \t   ;   "));
+	EXPECT_EQ(out_config_.statements_.size(), 1);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.size(), 2);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(0), "foo");
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(1), "bar");
+}
+
+// New lines get removed
+TEST_F(NginxStringConfigTest, HandleNewLine) {
+	EXPECT_TRUE(ParseString("\nfoo bar;\n\nfizz buzz;"));
+	EXPECT_EQ(out_config_.statements_.size(), 2);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.size(), 2);
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(0), "foo");
+	EXPECT_EQ(out_config_.statements_.at(0)->tokens_.at(1), "bar");
+	EXPECT_EQ(out_config_.statements_.at(1)->tokens_.size(), 2);
+	EXPECT_EQ(out_config_.statements_.at(1)->tokens_.at(0), "fizz");
+	EXPECT_EQ(out_config_.statements_.at(1)->tokens_.at(1), "buzz");
 }
 
 
