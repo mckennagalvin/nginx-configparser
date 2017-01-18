@@ -212,11 +212,14 @@ bool NginxConfigParser::Parse(std::istream* config_file, NginxConfig* config) {
       config_stack.pop();
       unmatchedBrackets--;
     } else if (token_type == TOKEN_TYPE_EOF) {
-      if ((last_token_type != TOKEN_TYPE_STATEMENT_END &&
-          last_token_type != TOKEN_TYPE_END_BLOCK)
-        || unmatchedBrackets != 0) { // Number of starting brackets must match closing brackets
+      if (last_token_type != TOKEN_TYPE_STATEMENT_END &&
+          last_token_type != TOKEN_TYPE_END_BLOCK) {
         // Error.
         break;
+      }
+      if (unmatchedBrackets != 0) {
+        printf("Number of starting brackets must match closing brackets");
+        return false;
       }
       return true;
     } else {
