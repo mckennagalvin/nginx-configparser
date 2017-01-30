@@ -157,7 +157,7 @@ bool NginxConfigParser::Parse(std::istream* config_file, NginxConfig* config) {
   while (true) {
     std::string token;
     token_type = ParseToken(config_file, &token);
-    printf ("%s: %s\n", TokenTypeAsString(token_type), token.c_str());
+    //printf ("%s: %s\n", TokenTypeAsString(token_type), token.c_str());
     if (token_type == TOKEN_TYPE_ERROR) {
       break;
     }
@@ -218,7 +218,7 @@ bool NginxConfigParser::Parse(std::istream* config_file, NginxConfig* config) {
         break;
       }
       if (unmatchedBrackets != 0) {
-        printf("Number of starting brackets must match closing brackets");
+        printf("Number of starting brackets must match closing brackets\n");
         return false;
       }
       return true;
