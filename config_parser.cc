@@ -203,9 +203,10 @@ bool NginxConfigParser::Parse(std::istream* config_file, NginxConfig* config) {
       // Increment unmatchedBrackets to make sure there's closing bracket later
       unmatchedBrackets++;
     } else if (token_type == TOKEN_TYPE_END_BLOCK) {
-      // Only tokens before this can be ; or }
+      // Only tokens before this can be ; or } or {
       if (!(last_token_type == TOKEN_TYPE_STATEMENT_END
-        || last_token_type == TOKEN_TYPE_END_BLOCK)) {
+        || last_token_type == TOKEN_TYPE_END_BLOCK
+        || last_token_type == TOKEN_TYPE_START_BLOCK)) {
         // Error.
         break;
       }
