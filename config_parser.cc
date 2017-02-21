@@ -36,7 +36,7 @@ std::string NginxConfigStatement::ToString(int depth) {
     }
     serialized_statement.append(tokens_[i]);
   }
-  if (child_block_.get() != nullptr) {
+  if (child_block_ != nullptr) {
     serialized_statement.append(" {\n");
     serialized_statement.append(child_block_->ToString(depth + 1));
     for (int i = 0; i < depth; ++i) {
@@ -197,8 +197,7 @@ bool NginxConfigParser::Parse(std::istream* config_file, NginxConfig* config) {
         break;
       }
       NginxConfig* const new_config = new NginxConfig;
-      config_stack.top()->statements_.back().get()->child_block_.reset(
-          new_config);
+      config_stack.top()->statements_.back().get()->child_block_ = new_config;
       config_stack.push(new_config);
       // Increment unmatchedBrackets to make sure there's closing bracket later
       unmatchedBrackets++;
